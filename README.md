@@ -1,53 +1,51 @@
 # Airlock
 
-**Give AI agents the answer they need, without handing them the whole file.**
+**Control what sensitive data reaches an AI agent—before it enters the agent’s context.**
 
-Airlock is an open-source context broker: a service that sits between an AI agent and a sensitive file. It keeps the file encrypted, evaluates each question against plain-language access policies, and returns an answer with a record of what was disclosed.
+Airlock is an open-source context broker for AI agents. It keeps source files encrypted, evaluates requests against natural-language policies, and releases only the information the broker determines is appropriate for the task. Every response has an access record showing what was disclosed, to which agent, on whose claimed behalf, and under which policies.
 
-## The problem
+## The problem: access to a file is often access to too much
 
-Ask an AI agent, “Who has a birthday coming up?” and it may read an entire employee spreadsheet to find out. That spreadsheet might also contain Social Security numbers, personal phone numbers, and other information the task never needed.
+AI agents need business data to do useful work. But permission to perform a task does not necessarily justify access to every field in a customer export, payroll file, or financial report. A question about a handful of records can cause a file-reading tool to return the entire dataset to the agent’s model.
 
-Even if the final answer contains only names and birthdays, the extra information has already entered the agent’s context—the information available to its model. Asking the agent to “only use the birthday columns” does not prevent its file-reading tool from returning everything.
+That creates unnecessary sensitive-data exposure. Once information enters an agent’s context, it can be repeated in a response, copied into logs, forwarded to another tool, or sent outside the intended workflow. Accidental oversharing, prompt injection, and compromised agents can turn broad data access into **data exfiltration: information leaving its authorized boundary**.
 
-Airlock moves that decision to a separate service that controls decryption and applies the data owner’s policies.
+A harmless-looking final answer does not show how much sensitive information the agent received along the way. Instructions such as “ignore the private columns” still rely on the same agent that already has the data.
 
-| Without Airlock | With Airlock |
+Airlock makes disclosure a separate decision. The agent can hold an encrypted file, but it must ask the broker to use its contents. The broker owns the keys, evaluates the task and applicable policies, and returns an answer, a limited view, or a refusal.
+
+## What this architecture changes
+
+| Capability | Why it matters |
 | --- | --- |
-| The agent reads the source file. | The agent receives an encrypted `.airlock` file. |
-| Unrelated sensitive fields can enter its context. | A tool sends the encrypted file and question to the broker. |
-| Instructions rely on the calling agent to limit disclosure. | The broker evaluates the request and returns a permitted answer. |
-| The final answer hides how much source data was read. | An access record captures the response, caller claims, and policy revisions. |
+| **Encrypted source files** | Possessing the file does not give the agent readable source data or decryption keys. |
+| **Disclosure per request** | The broker considers the question, purpose, caller claims, and policies before releasing information. |
+| **Graduated access** | A useful answer or limited view can replace blanket access to an entire file. |
+| **A record of disclosure** | Responses, agent credential identities, user claims, and policy revisions can be inspected afterward. |
+
+The aim is to reduce the amount of sensitive information available for an agent to expose. Airlock is not a network exfiltration detector, and it cannot control information after an authorized response has been released. Its LLM-based policy decisions remain fallible.
 
 ## How it works
 
-```text
-Your file → Airlock encrypts it → Your encrypted .airlock file
-                                       |
-                              Agent asks a question
-                                       |
-                              Tool uploads the file
-                                       v
-                           +-----------------------+
-                           | Airlock broker        |
-                           |                       |
-                           | Check agent access    |
-                           | Load applicable rules |
-                           | Decrypt in memory     |
-                           | Evaluate with OpenAI  |
-                           | Record the response   |
-                           +-----------------------+
-                                       |
-                              Answer → Calling agent
+The owner first uses Airlock to encrypt a file. The resulting `.airlock` file stays with the client. When an agent needs information, its tool uploads that encrypted file with the question and caller context:
+
+```mermaid
+flowchart TB
+    File["Client-held encrypted file"] --> Agent["AI agent + upload tool"]
+    Agent -->|Encrypted file + request| Broker["Airlock broker<br/>Owns keys<br/>Decrypts and records"]
+    Broker -->|Selected answer or refusal| Agent
+    Dashboard["Local dashboard<br/>Policies + access history"] <-->|Manage and review| Broker
+    Broker -->|Full plaintext + policies + request| LLM["Trusted model<br/>OpenAI in this demo"]
+    LLM -->|Decision + proposed response| Broker
 ```
 
-The encrypted file stays with you. The broker stores its wrapped decryption key and metadata, plus policies and encrypted access records—not the source-file payload. Agents never receive the keys. Every question includes the encrypted file, uploaded by a tool without putting ciphertext into the calling model’s prompt.
+The file-upload tool transports encrypted bytes directly; it does not put ciphertext into the calling model’s prompt. The broker stores wrapped keys, metadata, policies, and encrypted access records, but not the source-file payload. Agents never receive decryption keys. The broker records each response before releasing it.
 
-Policies are written in natural language and can apply to the entire organization or one file. For example:
+**The architecture is model-independent.** The broker’s policy engine can use any trusted model, including self-hosted open-weight models. A deployment can choose where inference runs and which model it trusts with sensitive content.
 
-> Never disclose Social Security numbers or personal phone numbers. For birthday planning, return only names and birthday month/day for opted-in employees on the caller’s team.
+For this demo, we use **OpenAI inference**. The repository currently implements the OpenAI API integration; another model backend would need a compatible inference adapter. The trusted model receives the full decrypted file to evaluate policy and compose the answer. Airlock limits exposure to the *calling agent*; the policy model remains inside the trusted processing path.
 
-The broker chooses the appropriate response:
+Policies can apply across an organization or to a specific file. The broker selects an access mode based on what it actually returns:
 
 | Access mode | What the agent receives |
 | --- | --- |
@@ -57,7 +55,18 @@ The broker chooses the appropriate response:
 | **Full** | Complete content when explicitly permitted |
 | **Deny** | A refusal or a request for missing context |
 
-These are model decisions, not mathematical guarantees. **The broker’s OpenAI invocation receives the full decrypted file.** Airlock limits what reaches the *calling agent*; it does not keep plaintext away from the model evaluating policy.
+## Where it helps
+
+The same pattern can support different policies and questions over sensitive datasets:
+
+| Task | A narrower disclosure could be |
+| --- | --- |
+| Customer support triage | Relevant case details without unrelated customer contact information |
+| Financial analysis | Department totals without individual payment details |
+| Workforce planning | Aggregate staffing counts without personal identifiers |
+| Birthday coordination | Opted-in teammates’ names and birthday month/day without SSNs, phone numbers, or birth years |
+
+These are examples of policies an owner can define, not predefined query handlers. The current implementation supports CSV files and uses an employee census as a reproducible starting point. The birthday question below illustrates the broader principle: **give the agent enough information to complete the task while limiting unrelated exposure.**
 
 ## Try it locally
 
