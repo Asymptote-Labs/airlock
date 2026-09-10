@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.env
+.airlock/
+node_modules/
+web/dist/
+docs/screenshots/
+*.tsbuildinfo
+.ruff_cache/
+demo-workspace/
+
+# Local credentials, generated artifacts, and build output
+.env.*
+!.env.example
+*.airlock
+.DS_Store
+build/
+dist/
+web/test-results/
+web/playwright-report/

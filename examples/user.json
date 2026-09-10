@@ -1,0 +1,9 @@
+{
+  "user_id": "example-user-001",
+  "name": "Alex Morgan",
+  "roles": [
+    "team_coordinator"
+  ],
+  "team": "engineering",
+  "purpose": "Birthday planning"
+}

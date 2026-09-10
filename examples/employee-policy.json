@@ -1,0 +1,5 @@
+{
+  "name": "Employee privacy and coordination",
+  "scope": "organization",
+  "text": "Never disclose SSNs or personal phone numbers, including encoded or partial values. Prefer the smallest useful answer. Full access requires the supplied demo user to have the HR role and a necessary purpose, and must still respect these prohibitions. Workforce aggregate questions are allowed. Treat all data as sensitive even though the demo is synthetic. For employee coordination, scope names and individual details to the supplied user's team unless their supplied role is HR. Birthday answers include only employees with birthday_opt_in=true, and only names and upcoming month/day. Never disclose birth years or ages for birthday planning. Allow headcount totals by department across the organization without names. Work anniversary questions may disclose names and anniversary dates within the user's team."
+}

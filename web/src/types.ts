@@ -1,0 +1,62 @@
+export type ObjectInfo = {
+  id: string;
+  name: string;
+  version: number;
+  created_at: string;
+  rows: number;
+  fields: string[];
+  bytes: number;
+  cipher: string;
+};
+export type Policy = {
+  id: string;
+  name: string;
+  text: string;
+  scope: "organization" | "object";
+  object_id: string | null;
+  enabled: boolean;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+};
+export type AccessEvent = {
+  id: string;
+  started_at: string;
+  finished_at?: string;
+  origin: string;
+  credential_identity: string;
+  object_id?: string;
+  object_name?: string;
+  object_version?: number;
+  question?: string;
+  response?: string;
+  mode?: string;
+  explanation?: string;
+  policies: Policy[];
+  disclosed_fields?: string[];
+  source_fields?: string[];
+  source_rows?: number;
+  provider_exposure?: string;
+  model?: string;
+  prompt_version?: string;
+  latency_ms?: number;
+  status: string;
+  error_type?: string;
+  user_provenance?: {
+    user_id: string;
+    name: string;
+    roles: string[];
+    team: string;
+    purpose: string;
+  };
+  provenance_status?: string;
+  response_sha256?: string;
+  reference_date?: string;
+  delivery_status?: string;
+};
+export type Status = {
+  model: string;
+  reference_date: string;
+  api_key_configured: boolean;
+};
+export type Page = "objects" | "policies" | "playground" | "history";
