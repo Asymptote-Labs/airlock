@@ -25,6 +25,25 @@ Airlock makes disclosure a separate decision. The agent can hold an encrypted fi
 
 The aim is to reduce the amount of sensitive information available for an agent to expose. Airlock is not a network exfiltration detector, and it cannot control information after an authorized response has been released. Its LLM-based policy decisions remain fallible.
 
+## Why use a cryptographic broker?
+
+**It separates possessing data from being able to read it.** When the broker and its keys are isolated from the calling agent, ignoring an instruction or reading the file directly yields ciphertext. The agent must go through a separate service to obtain usable information.
+
+That is a stronger starting point than handing the agent plaintext and asking it to behave. The benefit comes from **encryption plus exclusive broker custody of the keys plus controlled disclosure**—encryption alone is not enough.
+
+| Approach | What it provides | What Airlock adds |
+| --- | --- | --- |
+| **Prompt instructions** such as “never reveal SSNs” | Guidance about how the agent should use data | The calling agent does not start with the source plaintext. Instructions are evaluated by a separate broker that controls decryption. |
+| **Output filters and data loss prevention (DLP)** | Detection or blocking of sensitive information on monitored outputs and transfers | A chance to reduce exposure before source data enters the calling agent’s context. DLP can still protect downstream channels. |
+| **File permissions and encryption at rest** | Control over who can open stored data and protection while it is stored | Possession of a client file does not automatically unlock it. Each request goes through the broker, which can return less than the complete plaintext. |
+| **Pre-redacted files or database views** | A defined subset of data, often with deterministic field or row restrictions | Different answers can be produced from the same encrypted source as the task and policy change, without distributing a new plaintext extract for each use case. |
+
+The portable file remains encrypted wherever it is copied; copying it alone does not grant decryption access. New requests use the broker’s current policies, and each released response is recorded. Previously disclosed answers cannot be taken back, and their downstream use is outside this control.
+
+**This complements existing controls rather than replacing them.** A well-designed database view or narrowly scoped API may enforce a fixed disclosure rule more precisely and with less latency than an LLM. Airlock is useful when agents need flexible, policy-mediated answers from files that must remain unreadable to them. The trade-off is a dependency on broker availability and trusted inference for each request.
+
+Cryptography protects the source from direct reading; it does **not** prove that the broker’s generated answer is safe. The trusted model sees plaintext, and its policy decisions can still leak information. In this local demo, broker isolation is an assumption, not an operating-system security boundary.
+
 ## How it works
 
 The owner first uses Airlock to encrypt a file. The resulting `.airlock` file stays with the client. When an agent needs information, its tool uploads that encrypted file with the question and caller context:
